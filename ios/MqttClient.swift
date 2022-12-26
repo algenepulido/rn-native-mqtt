@@ -31,7 +31,8 @@ class MqttClient {
         }
         
         if url.string?.hasPrefix("ws") as! Bool {
-            let websocket = CocoaMQTTWebSocket(uri: url.path)
+            let skipWebsocketSSL = options["skipWebsocketSSL"] as? Bool ?? false
+            let websocket = CocoaMQTTWebSocket(uri: url.path, skipWebsocketSSL: skipWebsocketSSL)
             self.client = CocoaMQTT(clientID: "", socket: websocket)
         }
 

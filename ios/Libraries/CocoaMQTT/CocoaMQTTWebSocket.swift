@@ -15,6 +15,8 @@ import CocoaMQTT
 
 public protocol CocoaMQTTWebSocketConnectionDelegate: AnyObject {
     
+    var skipWebsocketSsl: Bool { get }
+    
     func connection(_ conn: CocoaMQTTWebSocketConnection, didReceive trust: SecTrust, completionHandler: @escaping (Bool) -> Swift.Void)
     
     func connectionOpened(_ conn: CocoaMQTTWebSocketConnection)
@@ -81,9 +83,11 @@ public class CocoaMQTTWebSocket: CocoaMQTTSocketProtocol {
     }
     let uri: String
     let builder: ConnectionBuilder
-    public init(uri: String = "", builder: ConnectionBuilder = CocoaMQTTWebSocket.DefaultConnectionBuilder()) {
+    let skipWebsocketSSL: Bool
+    public init(uri: String = "", builder: ConnectionBuilder = CocoaMQTTWebSocket.DefaultConnectionBuilder(), skipWebsocketSSL: Bool = false) {
         self.uri = uri
         self.builder = builder
+        self.skipWebsocketSSL = skipWebsocketSSL
     }
     
     public func connect(toHost host: String, onPort port: UInt16) throws {
@@ -246,6 +250,13 @@ public class CocoaMQTTWebSocket: CocoaMQTTSocketProtocol {
 }
 
 extension CocoaMQTTWebSocket: CocoaMQTTWebSocketConnectionDelegate {
+    
+    public var skipWebsocketSsl: Bool {
+        get {
+            return skipWebsocketSSL
+        }
+    }
+    
     public func connection(_ conn: CocoaMQTTWebSocketConnection, didReceive trust: SecTrust, completionHandler: @escaping (Bool) -> Swift.Void) {
         guard conn.isEqual(connection) else { return }
         if let del = delegate {
@@ -350,8 +361,12 @@ extension CocoaMQTTWebSocket.FoundationConnection: URLSessionWebSocketDelegate {
     public func urlSession(_ session: URLSession, task: URLSessionTask, didReceive challenge: URLAuthenticationChallenge, completionHandler: @escaping (URLSession.AuthChallengeDisposition, URLCredential?) -> Void) {
         queue.async {
             if let trust = challenge.protectionSpace.serverTrust, let delegate = self.delegate {
-                delegate.connection(self, didReceive: trust) { shouldTrust in
-                    completionHandler(shouldTrust ? .performDefaultHandling : .rejectProtectionSpace, nil)
+                if delegate.skipWebsocketSsl {
+                    completionHandler(.useCredential, URLCredential(trust: trust))
+                } else {
+                    delegate.connection(self, didReceive: trust) { shouldTrust in
+                        completionHandler(shouldTrust ? .performDefaultHandling : .rejectProtectionSpace, nil)
+                    }
                 }
             } else {
                 completionHandler(.performDefaultHandling, nil)
