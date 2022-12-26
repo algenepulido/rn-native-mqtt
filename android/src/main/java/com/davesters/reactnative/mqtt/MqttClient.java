@@ -112,6 +112,34 @@ class MqttClient {
                 }
             }
 
+            //Trust All Certificates
+            if (options.hasKey("skipWebsocketSSL")) {
+                Boolean val = options.getBoolean("skipWebsocketSSL");
+                if (val) {
+                    final TrustManager[] trustAllCerts = new TrustManager[]{
+                            new X509TrustManager() {
+                                @Override
+                                public void checkClientTrusted(X509Certificate[] x509Certificates, String s) throws CertificateException {
+
+                                }
+
+                                @Override
+                                public void checkServerTrusted(X509Certificate[] x509Certificates, String s) throws CertificateException {
+
+                                }
+
+                                @Override
+                                public X509Certificate[] getAcceptedIssuers() {
+                                    return new X509Certificate[]{};
+                                }
+                            }
+                    };
+                    final SSLContext sslContext = SSLContext.getInstance("SSL");
+                    sslContext.init(null, trustAllCerts, new SecureRandom());
+                    connOpts.setSocketFactory(sslContext.getSocketFactory());
+                }
+            }
+
             this.client.get().setCallback(new MqttEventCallback());
             this.client.get().connect(connOpts, null, new ConnectMqttActionListener());
         } catch (Exception ex) {
